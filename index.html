@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Presentation Chain</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      background-color: #f0f0f0;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    #container {
+      width: 90%;
+      max-width: 1200px;
+      min-height: 500px;
+      margin: 40px auto;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .slide-box {
+      width: 200px;
+      height: 200px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .slide-box:hover {
+      transform: translateY(-5px) scale(1.03);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    .slide-box:hover .icon {
+      transform: scale(1.1);
+      color: #2980b9;
+    }
+    .icon {
+      font-size: 40px;
+      margin-bottom: 15px;
+      color: #3498db;
+      transition: all 0.3s ease;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    .description {
+      font-size: 14px;
+      text-align: center;
+      color: #7f8c8d;
+    }
+    .landing-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      z-index: 1000;
+      display: none;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .landing-page.active {
+      display: block;
+    }
+    .home-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      color: #2c3e50;
+      padding: 10px;
+      border-radius: 5px;
+      transition: all 0.3s ease;
+    }
+    .home-btn:hover {
+      background-color: #e1f0fa;
+      transform: scale(1.1);
+      box-shadow: 0 2px 10px rgba(52, 152, 219, 0.2);
+    }
+    .close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 24px;
+      cursor: pointer;
+      color: #2c3e50;
+      transition: all 0.3s ease;
+    }
+    .close-btn:hover {
+      color: #e74c3c;
+      transform: rotate(90deg);
+    }
+    .content-area {
+      max-width: 800px;
+      margin: 60px auto;
+      padding: 20px;
+    }
+    .content-controls {
+      margin: 20px 0;
+      display: flex;
+      gap: 10px;
+    }
+    .control-btn {
+      padding: 8px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .control-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    .control-btn:active {
+      transform: translateY(0);
+    }
+    .control-btn::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: width 0.3s, height 0.3s;
+    }
+    .control-btn:active::after {
+      width: 200px;
+      height: 200px;
+      opacity: 0;
+    }
+    .save-btn {
+      background: #27ae60;
+      color: white;
+    }
+    .save-btn:hover {
+      background: #219a52;
+    }
+    .edit-btn {
+      background: #3498db;
+      color: white;
+    }
+    .edit-btn:hover {
+      background: #2980b9;
+    }
+    .delete-btn {
+      background: #e74c3c;
+      color: white;
+    }
+    .delete-btn:hover {
+      background: #c0392b;
+    }
+    .add-section-btn {
+      background: #f39c12;
+      color: white;
+    }
+    .add-section-btn:hover {
+      background: #d68910;
+    }
+    .content-section {
+      margin: 15px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      position: relative;
+      transition: all 0.3s ease;
+      cursor: move;
+    }
+    .content-section:hover {
+      box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    }
+    .section-controls {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      display: flex;
+      gap: 5px;
+    }
+    .section-controls button {
+      padding: 5px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      opacity: 0.8;
+    }
+    .section-controls button:hover {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    .content-input {
+      width: 100%;
+      min-height: 100px;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+    .content-input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    }
+    .content-input[readonly] {
+      background-color: #f8f9fa;
+      cursor: default;
+    }
+    .drop-zone {
+      border: 2px dashed #3498db;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 15px;
+      min-height: 100px;
+      transition: all 0.3s ease;
+    }
+    .drop-zone:hover {
+      background-color: #f8f9fa;
+      border-color: #2980b9;
+      transform: scale(1.01);
+    }
+    .drop-zone.dragover {
+      background: #e1f0fa;
+      border-color: #3498db;
+      transform: scale(1.02);
+      box-shadow: 0 0 15px rgba(52, 152, 219, 0.3);
+    }
+    .drop-zone.hidden {
+      display: none;
+    }
+    .image-preview {
+      margin-bottom: 15px;
+    }
+    .uploaded-image {
+      max-width: 100%;
+      margin: 10px 0;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .status-message {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      border-radius: 5px;
+      background: #2ecc71;
+      color: white;
+      display: none;
+      z-index: 1100;
+      transition: all 0.3s ease;
+      transform: translateY(100%);
+    }
+    .status-message.show {
+      transform: translateY(0);
+    }
+    @keyframes slideAnimation {
+      0% { transform: scale(1); background-color: white; }
+      50% { transform: scale(1.05); background-color: #e1f0fa; }
+      100% { transform: scale(1); background-color: white; }
+    }
+    .animate {
+      animation: slideAnimation 0.8s ease;
+    }
+    .content-section.dragging {
+      opacity: 0.5;
+      background: #f8f9fa;
+    }
+    .drag-indicator {
+      position: absolute;
+      background: #3498db;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    .drag-indicator.horizontal {
+      height: 2px;
+      left: 0;
+      right: 0;
+    }
+    .drag-indicator.vertical {
+      width: 2px;
+      top: 0;
+      bottom: 0;
+    }
+    .row-container .content-section {
+      flex: 1;
+      min-width: 200px;
+      max-width: calc(50% - 10px);
+    }
+    @media (max-width: 768px) {
+      .row-container {
+        flex-direction: column;
+      }
+      .row-container .content-section {
+        max-width: 100%;
+      }
+    }
+    .download-options {
+      position: fixed;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.2);
+      z-index: 1200;
+      display: none;
+    }
+    .download-options.show {
+      display: block;
+    }
+    .download-option {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: none;
+      border-radius: 5px;
+      background: #f8f9fa;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .download-option:hover {
+      background: #e9ecef;
+      transform: translateX(5px);
+    }
+    .download-btn {
+      background: #9b59b6;
+      color: white;
+    }
+    .download-btn:hover {
+      background: #8e44ad;
+    }
+    .export-frame {
+      border: 2px solid #3498db;
+      border-radius: 15px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  
+  <div id="container"></div>
+  <div class="status-message" id="statusMessage"></div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const container = document.getElementById("container");
+      
+      const slides = [
+        {
+          icon: "fas fa-rocket",
+          title: "Getting Started",
+          description: "Begin your journey here"
+        },
+        {
+          icon: "fas fa-lightbulb",
+          title: "New Ideas",
+          description: "Explore innovative concepts"
+        },
+        {
+          icon: "fas fa-cogs",
+          title: "Process",
+          description: "Implement your strategy"
+        },
+        {
+          icon: "fas fa-chart-line",
+          title: "Growth",
+          description: "Track your progress"
+        },
+        {
+          icon: "fas fa-flag-checkered",
+          title: "Success",
+          description: "Achieve your goals"
+        }
+      ];
+
+      const slideElements = [];
+
+      slides.forEach((slide, index) => {
+        const slideBox = createSlideBox(slide, index);
+        slideElements.push(slideBox);
+        container.appendChild(slideBox);
+        createLandingPage(slide, index);
+      });
+
+      function createSlideBox(slide, index) {
+        const slideBox = document.createElement("div");
+        slideBox.className = "slide-box";
+        
+        const icon = document.createElement("i");
+        icon.className = `icon ${slide.icon}`;
+        
+        const title = document.createElement("div");
+        title.className = "title";
+        title.textContent = slide.title;
+        
+        const description = document.createElement("div");
+        description.className = "description";
+        description.textContent = slide.description;
+        
+        slideBox.appendChild(icon);
+        slideBox.appendChild(title);
+        slideBox.appendChild(description);
+
+        slideBox.addEventListener("click", () => {
+          startChainAnimation(index);
+          openLandingPage(index);
+        });
+
+        return slideBox;
+      }
+
+      function createLandingPage(slide, index) {
+        const landingPage = document.createElement("div");
+        landingPage.className = "landing-page";
+        landingPage.id = `landing-${index}`;
+
+        const savedContent = JSON.parse(localStorage.getItem(`page-${index}`) || '{"sections": []}');
+
+        landingPage.innerHTML = `
+          <div class="home-btn" onclick="returnToHome()">
+            <i class="fas fa-home"></i>
+          </div>
+          <div class="close-btn" onclick="closeLandingPage(${index})">×</div>
+          <div class="content-area">
+            <h2>${slide.title}</h2>
+            <div class="content-controls">
+              <button class="control-btn add-section-btn" onclick="addNewSection(${index})">
+                Add New Section
+              </button>
+              <button class="control-btn save-btn" onclick="saveAllContent(${index})">
+                Save All Changes
+              </button>
+              <button class="control-btn download-btn" onclick="showDownloadOptions(${index})">
+                <i class="fas fa-download"></i> Export
+              </button>
+            </div>
+            <div id="sections-${index}" class="sections-container">
+              ${generateSavedSections(savedContent.sections)}
+            </div>
+          </div>
+          <div id="download-options-${index}" class="download-options">
+            <button class="download-option" onclick="downloadAs('png', ${index})">
+              Download as PNG
+            </button>
+            <button class="download-option" onclick="downloadAs('jpg', ${index})">
+              Download as JPG
+            </button>
+            <button class="download-option" onclick="downloadAs('pdf', ${index})">
+              Download as PDF
+            </button>
+          </div>
+        `;
+
+        document.body.appendChild(landingPage);
+        setupDropZones(index);
+        setupDragAndDrop(index);
+      }
+
+      function startChainAnimation(startIndex) {
+        slideElements.forEach(slide => slide.classList.remove("animate"));
+        slideElements.forEach((slide, index) => {
+          const delay = Math.abs(index - startIndex) * 150;
+          setTimeout(() => slide.classList.add("animate"), delay);
+        });
+      }
+    });
+
+    function generateSavedSections(sections) {
+      let currentRowId = null;
+      let html = '';
+      
+      sections.forEach((section, idx) => {
+        if (section.layout === 'horizontal') {
+          if (currentRowId !== section.rowId) {
+            // Close previous row container if exists
+            if (currentRowId) {
+              html += '</div>';
+            }
+            // Start new row container
+            html += `<div class="row-container" style="display: flex; gap: 20px;" data-row-id="${section.rowId}">`;
+            currentRowId = section.rowId;
+          }
+        } else {
+          // Close previous row container if exists
+          if (currentRowId) {
+            html += '</div>';
+            currentRowId = null;
+          }
+        }
+
+        const sectionHtml = `
+          <div class="content-section" draggable="true" id="section-${idx}">
+            <div class="section-controls">
+              <button onclick="editSection(this)" class="edit-btn">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button onclick="showUploadArea(this)" class="edit-btn">
+                <i class="fas fa-image"></i>
+              </button>
+              <button onclick="deleteSection(this)" class="delete-btn">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="drop-zone ${section.images && section.images.length ? 'hidden' : ''}">
+              Drag and drop images here or click to upload
+              <input type="file" hidden accept="image/*">
+            </div>
+            <div class="image-preview">
+              ${section.images ? section.images.map(img => 
+                `<img src="${img}" class="uploaded-image">`).join('') : ''}
+            </div>
+            <textarea class="content-input" placeholder="Enter your content here...">${section.text || ''}</textarea>
+          </div>
+        `;
+
+        html += sectionHtml;
+      });
+
+      // Close last row container if exists
+      if (currentRowId) {
+        html += '</div>';
+      }
+
+      return html;
+    }
+
+    function returnToHome() {
+      document.querySelectorAll('.landing-page').forEach(page => {
+        page.classList.remove('active');
+      });
+    }
+
+    function openLandingPage(index) {
+      document.getElementById(`landing-${index}`).classList.add("active");
+    }
+
+    function closeLandingPage(index) {
+      document.getElementById(`landing-${index}`).classList.remove("active");
+    }
+
+    function addNewSection(pageIndex) {
+      const sectionsContainer = document.getElementById(`sections-${pageIndex}`);
+      const newSection = document.createElement('div');
+      newSection.className = 'content-section';
+      newSection.draggable = true;
+      newSection.innerHTML = `
+        <div class="section-controls">
+          <button onclick="editSection(this)" class="edit-btn">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button onclick="showUploadArea(this)" class="edit-btn">
+            <i class="fas fa-image"></i>
+          </button>
+          <button onclick="deleteSection(this)" class="delete-btn">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+        <div class="drop-zone">
+          Drag and drop images here or click to upload
+          <input type="file" hidden accept="image/*">
+        </div>
+        <div class="image-preview"></div>
+        <textarea class="content-input" placeholder="Enter your content here..."></textarea>
+      `;
+      sectionsContainer.appendChild(newSection);
+      setupDropZone(newSection.querySelector('.drop-zone'));
+    }
+
+    function showUploadArea(button) {
+      const section = button.closest('.content-section');
+      const dropZone = section.querySelector('.drop-zone');
+      dropZone.classList.remove('hidden');
+    }
+
+    function editSection(button) {
+      const section = button.closest('.content-section');
+      const textarea = section.querySelector('.content-input');
+      const isEditing = textarea.readOnly;
+      
+      textarea.readOnly = !isEditing;
+      button.innerHTML = isEditing ? 
+        '<i class="fas fa-save"></i>' : 
+        '<i class="fas fa-edit"></i>';
+      
+      if (!isEditing) {
+        textarea.focus();
+      } else {
+        saveAllContent(getCurrentPageIndex());
+      }
+    }
+
+    function getCurrentPageIndex() {
+      const activePage = document.querySelector('.landing-page.active');
+      return activePage ? parseInt(activePage.id.split('-')[1]) : 0;
+    }
+
+    function deleteSection(button) {
+      if (confirm('Are you sure you want to delete this section?')) {
+        const section = button.closest('.content-section');
+        const rowContainer = section.parentElement;
+        
+        if (rowContainer.classList.contains('row-container')) {
+          // If this is the last section in the row
+          if (rowContainer.children.length <= 2) {
+            // Move the remaining section out of the row
+            const remainingSection = Array.from(rowContainer.children)
+              .find(child => child !== section);
+            
+            if (remainingSection) {
+              // Remove the max-width constraint
+              remainingSection.style.maxWidth = 'none';
+              rowContainer.before(remainingSection);
+            }
+            rowContainer.remove();
+          }
+        }
+        
+        section.remove();
+        saveAllContent(getCurrentPageIndex());
+        showStatusMessage('Section deleted successfully!');
+      }
+    }
+
+    function showStatusMessage(message) {
+      const statusMessage = document.getElementById('statusMessage');
+      statusMessage.textContent = message;
+      statusMessage.style.display = 'block';
+      statusMessage.classList.add('show');
+      
+      setTimeout(() => {
+        statusMessage.classList.remove('show');
+        setTimeout(() => {
+          statusMessage.style.display = 'none';
+        }, 300);
+      }, 2000);
+    }
+
+    function setupDropZones(pageIndex) {
+      document.querySelectorAll(`#landing-${pageIndex} .drop-zone`).forEach(setupDropZone);
+    }
+
+    function setupDropZone(dropZone) {
+      const input = dropZone.querySelector('input');
+      const preview = dropZone.closest('.content-section').querySelector('.image-preview');
+
+      dropZone.addEventListener('click', () => input.click());
+      
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files, preview);
+      });
+
+      input.addEventListener('change', (e) => {
+        handleFiles(e.target.files, preview);
+      });
+    }
+
+    function handleFiles(files, preview) {
+      Array.from(files).forEach(file => {
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.className = 'uploaded-image';
+            preview.appendChild(img);
+            
+            // Hide the drop zone after successful upload
+            const dropZone = preview.closest('.content-section').querySelector('.drop-zone');
+            dropZone.classList.add('hidden');
+            
+            saveAllContent(getCurrentPageIndex());
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    function setupDragAndDrop(pageIndex) {
+      const sectionsContainer = document.getElementById(`sections-${pageIndex}`);
+      let draggedElement = null;
+      let dragIndicator = document.createElement('div');
+      dragIndicator.className = 'drag-indicator';
+      document.body.appendChild(dragIndicator);
+
+      sectionsContainer.addEventListener('dragstart', (e) => {
+        if (e.target.closest('.content-section')) {
+          draggedElement = e.target.closest('.content-section');
+          draggedElement.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', '');
+        }
+      });
+
+      sectionsContainer.addEventListener('dragend', () => {
+        if (draggedElement) {
+          draggedElement.classList.remove('dragging');
+          draggedElement = null;
+          dragIndicator.style.display = 'none';
+        }
+      });
+
+      sectionsContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!draggedElement) return;
+
+        const targetSection = e.target.closest('.content-section');
+        if (!targetSection || targetSection === draggedElement) return;
+
+        const targetRect = targetSection.getBoundingClientRect();
+        const mouseY = e.clientY - targetRect.top;
+        const mouseX = e.clientX - targetRect.left;
+
+        // Determine if we're in the horizontal or vertical drop zones
+        const isHorizontalZone = mouseX < targetRect.width * 0.3 || mouseX > targetRect.width * 0.7;
+
+        if (isHorizontalZone) {
+          // Show vertical indicator for horizontal arrangement (side by side)
+          dragIndicator.className = 'drag-indicator vertical';
+          dragIndicator.style.left = mouseX < targetRect.width * 0.3 ? 
+            `${targetRect.left}px` : `${targetRect.right}px`;
+          dragIndicator.style.top = `${targetRect.top}px`;
+          dragIndicator.style.height = `${targetRect.height}px`;
+          dragIndicator.style.width = '2px';
+        } else {
+          // Show horizontal indicator for vertical arrangement (separate rows)
+          dragIndicator.className = 'drag-indicator horizontal';
+          dragIndicator.style.top = mouseY < targetRect.height / 2 ? 
+            `${targetRect.top}px` : `${targetRect.bottom}px`;
+          dragIndicator.style.left = `${targetRect.left}px`;
+          dragIndicator.style.width = `${targetRect.width}px`;
+          dragIndicator.style.height = '2px';
+        }
+        dragIndicator.style.display = 'block';
+      });
+
+      sectionsContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!draggedElement) return;
+
+        const targetSection = e.target.closest('.content-section');
+        if (!targetSection || targetSection === draggedElement) return;
+
+        const targetRect = targetSection.getBoundingClientRect();
+        const mouseY = e.clientY - targetRect.top;
+        const mouseX = e.clientX - targetRect.left;
+
+        // Clean up any existing row containers for both elements
+        function cleanupRowContainer(element) {
+          const row = element.parentElement;
+          if (row.classList.contains('row-container')) {
+            const remainingSection = Array.from(row.children)
+              .find(child => child !== element);
+            if (remainingSection) {
+              remainingSection.style.maxWidth = 'none';
+              row.before(remainingSection);
+            }
+            row.remove();
+          }
+        }
+
+        cleanupRowContainer(draggedElement);
+        cleanupRowContainer(targetSection);
+
+        // Remove both elements from their current positions
+        draggedElement.remove();
+        targetSection.remove();
+
+        // Determine if we're in the horizontal or vertical drop zones
+        const isHorizontalZone = mouseX < targetRect.width * 0.3 || mouseX > targetRect.width * 0.7;
+
+        if (isHorizontalZone) {
+          // Create new row container
+          const rowContainer = document.createElement('div');
+          rowContainer.className = 'row-container';
+          rowContainer.style.display = 'flex';
+          rowContainer.style.gap = '20px';
+          rowContainer.dataset.rowId = Date.now().toString();
+
+          // Set the order based on which side we're dropping
+          if (mouseX < targetRect.width * 0.3) {
+            rowContainer.appendChild(draggedElement);
+            rowContainer.appendChild(targetSection);
+          } else {
+            rowContainer.appendChild(targetSection);
+            rowContainer.appendChild(draggedElement);
+          }
+
+          // Set the width for both columns
+          targetSection.style.maxWidth = 'calc(50% - 10px)';
+          draggedElement.style.maxWidth = 'calc(50% - 10px)';
+
+          // Insert the row container
+          sectionsContainer.appendChild(rowContainer);
+        } else {
+          // Vertical arrangement - separate rows
+          draggedElement.style.maxWidth = 'none';
+          targetSection.style.maxWidth = 'none';
+
+          // Get the original positions of both elements
+          const draggedRect = draggedElement.getBoundingClientRect();
+          const targetRect = targetSection.getBoundingClientRect();
+          const isDraggedAbove = draggedRect.top < targetRect.top;
+
+          if (mouseY < targetRect.height / 2) {
+            // Dropping in the top half
+            if (isDraggedAbove) {
+              // If dragged element was above, maintain order
+              sectionsContainer.appendChild(draggedElement);
+              sectionsContainer.appendChild(targetSection);
+            } else {
+              // If dragged element was below, flip order
+              sectionsContainer.appendChild(targetSection);
+              sectionsContainer.appendChild(draggedElement);
+            }
+          } else {
+            // Dropping in the bottom half
+            if (isDraggedAbove) {
+              // If dragged element was above, flip order
+              sectionsContainer.appendChild(targetSection);
+              sectionsContainer.appendChild(draggedElement);
+            } else {
+              // If dragged element was below, maintain order
+              sectionsContainer.appendChild(draggedElement);
+              sectionsContainer.appendChild(targetSection);
+            }
+          }
+        }
+
+        dragIndicator.style.display = 'none';
+        saveAllContent(getCurrentPageIndex());
+      });
+    }
+
+    function showDownloadOptions(pageIndex) {
+      const options = document.getElementById(`download-options-${pageIndex}`);
+      const button = document.querySelector('.download-btn');
+      const rect = button.getBoundingClientRect();
+      
+      options.style.top = `${rect.bottom + 10}px`;
+      options.style.left = `${rect.left}px`;
+      options.classList.add('show');
+
+      // Close options when clicking outside
+      document.addEventListener('click', function closeOptions(e) {
+        if (!options.contains(e.target) && !button.contains(e.target)) {
+          options.classList.remove('show');
+          document.removeEventListener('click', closeOptions);
+        }
+      });
+    }
+
+    async function downloadAs(format, pageIndex) {
+      const sectionsContainer = document.getElementById(`sections-${pageIndex}`);
+      
+      // Add frame for export
+      const exportFrame = document.createElement('div');
+      exportFrame.className = 'export-frame';
+      const originalParent = sectionsContainer.parentNode;
+      exportFrame.appendChild(sectionsContainer);
+      originalParent.appendChild(exportFrame);
+
+      try {
+        const canvas = await html2canvas(exportFrame, {
+          backgroundColor: '#ffffff',
+          scale: 2, // Higher quality
+          logging: false,
+          useCORS: true
+        });
+
+        // Remove frame after capture
+        exportFrame.removeChild(sectionsContainer);
+        originalParent.removeChild(exportFrame);
+        originalParent.appendChild(sectionsContainer);
+
+        if (format === 'pdf') {
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? 'l' : 'p',
+            unit: 'px',
+            format: [canvas.width, canvas.height]
+          });
+
+          pdf.addImage(
+            canvas.toDataURL('image/jpeg', 1.0),
+            'JPEG',
+            0,
+            0,
+            canvas.width,
+            canvas.height
+          );
+          pdf.save(`layout-${Date.now()}.pdf`);
+        } else {
+          const link = document.createElement('a');
+          link.download = `layout-${Date.now()}.${format}`;
+          link.href = canvas.toDataURL(`image/${format}`, 1.0);
+          link.click();
+        }
+      } catch (error) {
+        console.error('Export failed:', error);
+        showStatusMessage('Export failed. Please try again.');
+      }
+
+      // Hide download options
+      document.getElementById(`download-options-${pageIndex}`).classList.remove('show');
+    }
+  </script>
+</body>
+</html>
